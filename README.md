@@ -83,13 +83,12 @@ ensemble_wbf_test_final.json  ✓
 
 ### Software
 - Docker with NVIDIA Container Toolkit (`nvidia-container-toolkit`)
-- Python ≥ 3.9
-- `sudo` privileges (required for Docker GPU passthrough)
+- Python ≥ 3.10
 
 ### Python Dependencies
 
 ```bash
-pip install torch torchvision ensemble-boxes pycocotools tqdm pillow
+pip install torch torchvision numpy pillow tqdm ensemble-boxes pycocotools
 ```
 
 ---
@@ -121,8 +120,7 @@ BASE_DIR="/data/clearsar/workspace"
 ### 3 — Run All Detectors
 
 ```bash
-chmod +x run_all.sh
-./run_all.sh
+sh run_all.sh
 ```
 
 This script will:
@@ -134,7 +132,7 @@ This script will:
 |-----------|-----------------|---------------|
 | `strip-rcnn-reproducibility-v1` | `strip-rcnn-output/` | Strip-R-CNN |
 | `define-yolo-reproducability` | `outputs_dino_yolo/` | D-FINE, YOLOv11, Exp08b |
-| `rf_detr` | `rf-detr-output/` | RF-DETR (base + pseudo-label retrain) |
+| `rf_detr` | `rf-detr-output/` | RF-DETR (base + train pseudo-label + test pseudo-label) |
 | `mmdetection` | `mmdetection-output/` | CO-DETR, DINO, DDQ-DETR, RTMDet, GLIP |
 | `deimv2-infer` | `deim-output/` | DEIMv2 |
 
@@ -199,8 +197,6 @@ output/ensemble_wbf_test_final.json
 | WBF IoU threshold | 0.7 |
 | WBF skip box threshold | 0.06 |
 | RoI classifier strategy | `insight_driven` |
-| RoI pooling output size | 7 × 7 |
-| RoI spatial scale | 1/32 |
 
 **Model weights and temperature values used in final submission:**
 
@@ -211,7 +207,14 @@ output/ensemble_wbf_test_final.json
 | RF-DETR (base) | 2.5 | 0.60 |
 | YOLOv11 | 3.8 | 1.00 |
 | D-FINE ensemble | 3.0 | 0.60 |
-| RF-DETR (pseudo) + MMDet models | 0.0 | — |
+| CO-DETR | 0.0 | 1.30 |
+| DINO | 0.0 | 1.50 |
+| RF-DETR (train pseudo-labels) | 0.0 | 0.90 |
+| DDQ-DETR | 0.0 | 0.90 |
+| RTMDet | 0.0 | 0.60 |
+| GLIP | 0.0 | 0.60 |
+| D-FINE Exp08b variant | 0.0 | 0.60 |
+| RF-DETR (test pseudo-labels) | 0.0 | 0.60 |
 
 > Models with `weight=0.0` do not influence box geometry or confidence but still contribute to the WBF agreement signal (incrementing *P* in Equation 1).
 
@@ -239,32 +242,6 @@ Per-model sigmoid calibration before WBF aligns confidence semantics across hete
 ### RoI Confidence Rescorer
 
 A ResNet-50 binary classifier trained on 43,508 balanced TP/FP RoI crops from training-set inference. Applied post-WBF via the `insight_driven` strategy: boxes where both WBF confidence and classifier probability fall below threshold have their scores downweighted.
-
----
-
-## Troubleshooting
-
-**Docker permission errors**
-
-```bash
-# Add your user to the docker group (requires re-login)
-sudo usermod -aG docker $USER
-```
-
-**GPU not visible inside container**
-
-```bash
-# Verify nvidia-container-toolkit is installed
-nvidia-container-cli info
-```
-
-**Strip-R-CNN JSON not found**
-
-The Strip-R-CNN container generates a timestamped JSON filename. Check `strip-rcnn-output/` after the bash script completes and update the path in `ensemble.py` accordingly.
-
-**`adjust_jsons.py` fails with permission error**
-
-The script is called with `sudo` inside `run_all.sh`. If running manually, ensure you have write access to all output directories or prefix with `sudo`.
 
 ---
 
